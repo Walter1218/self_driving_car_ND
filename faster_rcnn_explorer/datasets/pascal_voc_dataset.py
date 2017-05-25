@@ -22,7 +22,7 @@ class VOC(chainercv.datasets.VOCDetectionDataset):
     IMG_MAX_SIZE = 1000
 
     def __init__(self, mode='train', use_difficult=False):
-        super(VOC, self).__init__(mode=mode, use_difficult=use_difficult)
+        super(VOC, self).__init__(mode, use_difficult=use_difficult)
         self.mean = np.array([[[103.939, 116.779, 123.68]]])  # BGR
 
     def get_example(self, i):
