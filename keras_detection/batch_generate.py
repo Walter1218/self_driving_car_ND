@@ -15,7 +15,8 @@ RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting
 RPN_POSITIVE_WEIGHT = -1.0
-
+img_channel_mean = [103.939, 116.779, 123.68]
+img_scaling_factor = 1.0
 def _generate_all_bbox(feat_h, feat_w, feat_stride = 16, num_anchors = 9):
     # Create lattice (base points to shift anchors)
     shift_x = np.arange(0, feat_w) * feat_stride
@@ -155,8 +156,13 @@ def batch_generate(data, batch_size = 1):
             # bbox_targets
             bbox_targets = bbox_targets.reshape((1, height, width, 9 * 4))
             #print(bbox_targets.shape)
-
-        yield img, [np.copy(labels), np.copy(bbox_targets)]
+            x_img = img.astype(np.float32)
+            x_img[:, :, 0] -= img_channel_mean[0]
+            x_img[:, :, 1] -= img_channel_mean[1]
+            x_img[:, :, 2] -= img_channel_mean[2]
+            x_img /= img_scaling_factor
+            x_img = np.expand_dims(x_img, axis=0)
+        yield x_img, [np.copy(labels), np.copy(bbox_targets)]
 
 #data = pd.read_csv('voc.csv')
 #data = data.drop('Unnamed: 0', 1)
