@@ -162,10 +162,117 @@ def batch_generate(data, batch_size = 1):
             x_img[:, :, 2] -= img_channel_mean[2]
             x_img /= img_scaling_factor
             x_img = np.expand_dims(x_img, axis=0)
-        yield x_img, [np.copy(labels), np.copy(bbox_targets)]
+            label_generate(img, gta)
+        #yield x_img, [np.copy(labels), np.copy(bbox_targets)]
+#TODO
+#fast version(inprogress)
+def label_generate(img, gta):
+    #inti base matrix
+    (output_width, output_height) = (40, 60)
+    num_anchors = 9
 
-#data = pd.read_csv('voc.csv')
-#data = data.drop('Unnamed: 0', 1)
-#data['File_Path'] = './VOCdevkit2007/VOC2007/JPEGImages/' + data['Frame']
-#print(data.head())
-#batch_generate(data, batch_size=10)
+    #40,60,9
+    #40,60,9,4
+    y_rpn_overlap = np.zeros((output_height, output_width, num_anchors))
+    y_is_box_valid = np.zeros((output_height, output_width, num_anchors))
+    y_rpn_regr = np.zeros((output_height * output_width * num_anchors , 4))
+
+    #anchor box generate(generate anchors in each shifts box)
+    anchor_box = _generate_all_bbox(output_width, output_height)
+    total_anchors = anchor_box.shape[0]
+    print('the shape of anchor_box', np.asarray(anchor_box).shape)
+    print('the total number os anchors',total_anchors)
+
+    #Only inside anchors are valid
+    _allowed_border = 0
+    im_info = img.shape[:2]
+    inds_inside = np.where(
+    (anchor_box[:, 0] >= -_allowed_border) &
+    (anchor_box[:, 1] >= -_allowed_border) &
+    (anchor_box[:, 2] < im_info[1] + _allowed_border) &  # width
+    (anchor_box[:, 3] < im_info[0] + _allowed_border)    # height
+    )[0]
+    print('inside anchor index',inds_inside)
+    print('number of valid anchors',len(inds_inside))
+
+    valid_anchors = anchor_box[inds_inside, :]
+    print('valid_anchors display',valid_anchors)
+    print('shape of valid_anchors',np.asarray(valid_anchors).shape)
+
+    y_rpn_regr[inds_inside] = anchor_box[inds_inside, :]
+    print('rpn overlap display', y_rpn_regr)
+    print('shape of rpn overlap',np.asarray(y_rpn_regr).shape)
+    print('rpn overlap[inds_inside] display', y_rpn_regr[inds_inside])
+    print('shape of inds_inside rpn overlaps',np.asarray(y_rpn_regr[inds_inside]).shape)
+
+    print('valid_anchors')
+    overlaps = utils.bbox_overlaps(np.ascontiguousarray(valid_anchors, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
+    argmax_overlaps = overlaps.argmax(axis=1)
+    #max_overlaps = np.zeros((output_height * output_width * num_anchors))
+    max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
+    gt_argmax_overlaps = overlaps.argmax(axis=0)
+    gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
+    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    print('overlaps display',overlaps)
+    print('shape of overlaps', np.asarray(overlaps).shape)
+    print('argmax_overlaps', argmax_overlaps)
+    print('shape of argmax_overlaps',argmax_overlaps.shape)
+    print('max overlaps display', max_overlaps)
+    print('total number of max overlaps', len(max_overlaps))
+    print('shape of max overlaps', max_overlaps.shape)
+    print('gt_max_overlaps display', gt_max_overlaps)
+    print('total number of gt_max_overlaps', len(gt_max_overlaps))
+    print('gt_argmax_overlaps', gt_argmax_overlaps)
+    print('number of gt_argmax_overlaps', len(gt_argmax_overlaps))
+
+    #calculate iou(overlaps)
+    print('y_rpn_overlap')
+    overlaps = utils.bbox_overlaps(np.ascontiguousarray(y_rpn_regr, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
+    argmax_overlaps = overlaps.argmax(axis=1)
+    max_overlaps = np.zeros((output_height * output_width * num_anchors))
+    max_overlaps[inds_inside] = overlaps[np.arange(len(inds_inside)), argmax_overlaps[inds_inside]]
+    gt_argmax_overlaps = overlaps.argmax(axis=0)
+    gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
+    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    print('overlaps display',overlaps)
+    print('shape of overlaps', np.asarray(overlaps).shape)
+    print('argmax_overlaps', argmax_overlaps)
+    print('shape of argmax_overlaps',argmax_overlaps.shape)
+    print('max overlaps display', max_overlaps)
+    print('total number of max overlaps', len(max_overlaps))
+    print('shape of max overlaps', max_overlaps.shape)
+    print('gt_max_overlaps display', gt_max_overlaps)
+    print('total number of gt_max_overlaps', len(gt_max_overlaps))
+    print('gt_argmax_overlaps', gt_argmax_overlaps)
+    print('number of gt_argmax_overlaps', len(gt_argmax_overlaps))
+
+    #y_rpn_overlap, y_is_box_valid
+    y_rpn_overlap = y_rpn_overlap.reshape(output_height * output_width * num_anchors)
+    y_is_box_valid = y_is_box_valid.reshape(output_height * output_width * num_anchors)
+    #negative
+    print('shape of y_rpn_overlap', y_rpn_overlap.shape)
+    print('shape of y_is_box_valid',y_is_box_valid.shape)
+    y_rpn_overlap[max_overlaps < neg_min_overlaps] = 0
+    y_is_box_valid[max_overlaps < neg_min_overlaps] = 1
+    #positive
+    y_rpn_overlap[gt_argmax_overlaps] = 1
+    y_is_box_valid[gt_argmax_overlaps] = 1
+    y_rpn_overlap[max_overlaps >= pos_max_overlaps] = 1
+    y_is_box_valid[max_overlaps >= pos_max_overlaps] = 1
+    #neutral
+    #np.logical_and
+    y_rpn_overlap[np.logical_and(neg_min_overlaps < max_overlaps, max_overlaps < pos_max_overlaps)] = 0
+    y_is_box_valid[np.logical_and(neg_min_overlaps < max_overlaps, max_overlaps < pos_max_overlaps)] = 0
+    #y_rpn_overlap[neg_min_overlaps < max_overlaps and max_overlaps < pos_max_overlaps] = 0
+    #y_is_box_valid[neg_min_overlaps < max_overlaps and max_overlaps < pos_max_overlaps] = 0
+    y_rpn_overlap = y_rpn_overlap.reshape(output_height, output_width, num_anchors)
+    y_is_box_valid = y_is_box_valid.reshape(output_height, output_width, num_anchors)
+    print('y rpn overlaps',y_rpn_overlap)
+    print('y is valid',y_is_box_valid)
+
+
+data = pd.read_csv('voc.csv')
+data = data.drop('Unnamed: 0', 1)
+data['File_Path'] = './VOCdevkit2007/VOC2007/JPEGImages/' + data['Frame']
+print(data.head())
+batch_generate(data, batch_size=10)
