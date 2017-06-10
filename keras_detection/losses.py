@@ -13,7 +13,7 @@ def rpn_classification(anchors=9):
 
     def f(y_true, y_pred):
         # Binary classification loss
-        x, y = y_pred[:, :, :, :], y_true[:, :, :, :]
+        x, y = y_pred[:, :, :, :], y_true[:, :, :, anchors:]
 
         a = y_true[:, :, :, :anchors] * keras.backend.binary_crossentropy(x, y)
         a = keras.backend.sum(a)
@@ -37,7 +37,7 @@ def rpn_regression(anchors=9):
     """
     def f(y_true, y_pred):
         # Robust L1 Loss
-        x = y_true[:, :, :, :] - y_pred
+        x = y_true[:, :, :, 4 * anchors:] - y_pred
 
         mask = tf.less_equal(keras.backend.abs(x), 1.0)
         mask = keras.backend.cast(mask, keras.backend.floatx())
