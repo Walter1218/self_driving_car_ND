@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 from keras.layers import Input, Dense, Activation, Flatten, Convolution2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D, TimeDistributed, convolutional, core
-
+from roipool import RoiPoolingConv
 from keras import backend as K
 import tensorflow as tf
 def base_net(input_tensor=None, trainable=False):
@@ -44,3 +44,22 @@ def rpn(base_layers,num_anchors):
     x_regr = convolutional.Conv2D(num_anchors * 4, 1, 1, activation='linear', name='rpn_out_regress')(x)
 
     return [x_class, x_regr, base_layers]
+
+def classification(x_tensor, input_roi, limited_roi, nb_classes = 21, trainable=False):
+    pooling_regions = 14
+    input_shape = (limited_roi,14,14,512)
+    #pool = ROI(14, input_roi)(x_tensor)
+    pool = RoiPoolingConv(pooling_regions, limited_roi)([x_tensor, input_roi])
+
+    flatten = TimeDistributed(Flatten())(pool)
+    fc6 = TimeDistributed(Dense(4096, activation = 'relu'), name = 'fc6')(flatten)
+    fc7 = TimeDistributed(Dense(4096, activation = 'relu'), name = 'fc7')(fc6)
+    #score = Dense(nb_classes)(fc7)
+    #score = Activation('softmax')(score)
+
+    score = TimeDistributed(Dense(nb_classes, activation = 'softmax'), name = 'cls_score')(fc7)
+    #boxes = Dense(4 * (nb_classes - 1))(fc7)
+    #boxes = Activation('linear')(boxes)
+
+    boxes = TimeDistributed(Dense(4 * (nb_classes - 1), activation = 'linear'), name = 'bbox')(fc7)
+    return [score, boxes]

@@ -1,5 +1,5 @@
 """
-issues: the model is not fitting well, the loss is too large
+The model seems can be fitting, but we need add fast-rnn classification model at the end of rpn layer, and see the performance of this model
 """
 import pandas as pd
 import numpy as np

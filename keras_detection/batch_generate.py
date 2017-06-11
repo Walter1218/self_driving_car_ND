@@ -74,6 +74,7 @@ def batch_generate(data, batch_size = 1):
                 gta[i, 2] = int(bb_boxes.iloc[i]['xmax'])
                 gta[i, 3] = int(bb_boxes.iloc[i]['ymax'])
             #print(gta)
+
             x_img = img.astype(np.float32)
             x_img[:, :, 0] -= img_channel_mean[0]
             x_img[:, :, 1] -= img_channel_mean[1]
@@ -82,9 +83,10 @@ def batch_generate(data, batch_size = 1):
             x_img = np.expand_dims(x_img, axis=0)
             #label generate( regression target & postive/negative samples)
             y_rpn_cls,y_rpn_regr = label_generate(img, gta)
+            y_rpn_cls,y_rpn_regr = utils.calc_rpn(bb_boxes, gta)
             #print(y_rpn_cls)
             #print(y_rpn_regr.shape)
-        yield x_img, [np.copy(y_rpn_cls), np.copy(y_rpn_regr)]
+        yield x_img, [np.copy(y_rpn_cls), np.copy(y_rpn_regr)], gta
 
 #TODO
 #fast version(inprogress)
@@ -128,6 +130,7 @@ def label_generate(img, gta):
     #print('shape of inds_inside rpn overlaps',np.asarray(y_rpn_regr[inds_inside]).shape)
 
     #print('valid_anchors')
+    #print('valid_anchors shape', valid_anchors.shape)
     overlaps = utils.bbox_overlaps(np.ascontiguousarray(valid_anchors, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
     #max_overlaps = np.zeros((output_height * output_width * num_anchors))
@@ -151,14 +154,19 @@ def label_generate(img, gta):
     #print('y_rpn_overlap')
     overlaps = utils.bbox_overlaps(np.ascontiguousarray(y_rpn_regr, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
+    #argmax_overlaps = overlaps.argmax(axis=0)
     max_overlaps = np.zeros((output_height * output_width * num_anchors))
     max_overlaps[inds_inside] = overlaps[np.arange(len(inds_inside)), argmax_overlaps[inds_inside]]
+    #max_overlaps[inds_inside] = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)
+    #print('gt_argmax_overlaps',gt_argmax_overlaps)
     gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
     gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
     #print('overlaps display',overlaps)
     #print('shape of overlaps', np.asarray(overlaps).shape)
+    #print('overlaps', overlaps.argmax(axis = 0))
     #print('argmax_overlaps', argmax_overlaps)
+    #print('argmax_overlaps', np.sum(argmax_overlaps))
     #print('shape of argmax_overlaps',argmax_overlaps.shape)
     #print('max overlaps display', max_overlaps)
     #print('total number of max overlaps', len(max_overlaps))
@@ -219,7 +227,24 @@ def label_generate(img, gta):
     #print('number of negative samples',len(np.where(np.logical_and(y_rpn_overlap == 0, y_is_box_valid == 1))[0]))
 
     #bbox transfer for all valid postive samples
-    y_rpn_regr[inds_inside] = utils._compute_targets(y_rpn_regr[inds_inside], gta[argmax_overlaps[inds_inside], :])
+    index = np.where(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 1))[0]
+    #print('valid box',len(index))
+    #print('valid box', index)
+    #print('gta number',len(gta[argmax_overlaps, :]))
+    #print('argmax_overlaps', argmax_overlaps)
+    #print('gta', gta[argmax_overlaps,:])
+    #print('gta', len(gta))
+    #print('gta', gta)
+    #print('gta', gta[argmax_overlaps[index],:])
+    #y_rpn_regr[inds_inside] = 0
+
+    #overlaps = utils.bbox_overlaps(np.ascontiguousarray(y_rpn_regr[inds_inside], dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
+    #argmax_overlaps = overlaps.argmax(axis=1)
+    y_rpn_regr = np.zeros((output_height * output_width * num_anchors, 4))
+    #print('shape of rpn reg',y_rpn_regr.shape)
+    y_rpn_regr[index] = utils._compute_targets(y_rpn_regr[index], gta[argmax_overlaps[index]])
+    #print(y_rpn_regr[index])
+    #y_rpn_regr = utils._compute_targets(y_rpn_regr, gta[argmax_overlaps, :])
     #print('bbox targets shape', y_rpn_regr.shape)
     #print('bbox targets value', y_rpn_regr)
     #print('bbox targets[inds_inside]', y_rpn_regr[inds_inside])
