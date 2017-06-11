@@ -14,4 +14,7 @@ label generate: debug(inprogress)
 
 rpn_train:debug (inprogress)
 
+fast-rcnn:debug (inprogress)
+
+full-model training: debug (inprogress)
 
