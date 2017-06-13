@@ -58,7 +58,8 @@ while True:
     #The input structure is [boxes, scores, maximum]
     #roi = utils.propose(P_rpn[1], P_rpn[0], 300)
     rois, scores = utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
-    print(rois.shape)
+    #utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
+    #print(rois.shape)
     utils.cal_accuracy(gta, rois, scores)
     #print(np.asarray(roi))
     #print(roi[0])

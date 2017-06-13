@@ -40,7 +40,7 @@ iter_num = 0
 epoch_num = 0
 while True:
     try:
-        X, Y = next(gen)
+        X, Y, gta = next(gen)
         loss_rpn = model_rpn.train_on_batch(X, Y)
         P_rpn = model_rpn.predict_on_batch(X)
         iter_num += 1

@@ -82,13 +82,17 @@ def _whctrs(anchor):
     return w, h, x_ctr, y_ctr
 
 def clip_cpu(boxes, shape):
-    boxes[:, 0::4] = np.maximum(np.minimum(boxes[:, 0::4], int(shape[1] - 1)), 0)
+    #boxes[:, 0::4] = np.maximum(np.minimum(boxes[:, 0::4], int(shape[1] - 1)), 0)
     # y1 >= 0
-    boxes[:, 1::4] = np.maximum(np.minimum(boxes[:, 1::4], int(shape[0] - 1)), 0)
+    #boxes[:, 1::4] = np.maximum(np.minimum(boxes[:, 1::4], int(shape[0] - 1)), 0)
     # x2 < im_shape[1]
-    boxes[:, 2::4] = np.maximum(np.minimum(boxes[:, 2::4], int(shape[1] - 1)), 0)
+    #boxes[:, 2::4] = np.maximum(np.minimum(boxes[:, 2::4], int(shape[1] - 1)), 0)
     # y2 < im_shape[0]
-    boxes[:, 3::4] = np.maximum(np.minimum(boxes[:, 3::4], int(shape[0] - 1)), 0)
+    #oxes[:, 3::4] = np.maximum(np.minimum(boxes[:, 3::4], int(shape[0] - 1)), 0)
+    boxes[:,0]
+    boxes[:,1]
+    boxes[:,2]
+    boxes[:,3]
     return boxes
 
 
@@ -131,132 +135,6 @@ def iou(a, b):
 	area_u = u[2] * u[3]
 	return float(area_i) / float(area_u)
 
-def calc_rpn(bbox, gta, width = 960, height = 640, resized_width = 960, resized_height = 640):
-    downscale = float(16)
-    anchor_sizes = [128, 256, 512]
-    anchor_ratios = [[1, 1], [1, 2], [2, 1]]
-    num_anchors = len(anchor_sizes) * len(anchor_ratios)
-    # calculate the output map size based on the network architecture
-    (output_width, output_height) = (60, 40)
-    n_anchratios = len(anchor_ratios)
-    # initialise empty output objectives
-    y_rpn_overlap = np.zeros((output_height, output_width, num_anchors))
-    y_is_box_valid = np.zeros((output_height, output_width, num_anchors))
-    y_rpn_regr = np.zeros((output_height, output_width, num_anchors * 4))
-    num_bboxes = len(gta)
-    num_anchors_for_bbox = np.zeros(num_bboxes).astype(int)
-    best_anchor_for_bbox = -1*np.ones((num_bboxes, 4)).astype(int)
-    best_iou_for_bbox = np.zeros(num_bboxes).astype(np.float32)
-    best_x_for_bbox = np.zeros((num_bboxes, 4)).astype(int)
-    best_dx_for_bbox = np.zeros((num_bboxes, 4)).astype(np.float32)
-    for anchor_size_idx in range(len(anchor_sizes)):
-        for anchor_ratio_idx in range(n_anchratios):
-            anchor_x = anchor_sizes[anchor_size_idx] * anchor_ratios[anchor_ratio_idx][0]
-            anchor_y = anchor_sizes[anchor_size_idx] * anchor_ratios[anchor_ratio_idx][1]
-            for ix in range(output_width):
-                # x-coordinates of the current anchor box
-                x1_anc = downscale * (ix + 0.5) - anchor_x / 2
-                x2_anc = downscale * (ix + 0.5) + anchor_x / 2
-                # ignore boxes that go across image boundaries
-                if x1_anc < 0 or x2_anc > resized_width:
-                    continue
-                for jy in range(output_height):
-                    # y-coordinates of the current anchor box
-                    y1_anc = downscale * (jy + 0.5) - anchor_y / 2
-                    y2_anc = downscale * (jy + 0.5) + anchor_y / 2
-                    # ignore boxes that go across image boundaries
-                    if y1_anc < 0 or y2_anc > resized_height:
-                        continue
-                    # bbox_type indicates whether an anchor should be a target
-                    bbox_type = 'neg'
-                    # this is the best IOU for the (x,y) coord and the current anchor
-                    # note that this is different from the best IOU for a GT bbox
-                    best_iou_for_loc = 0.0
-                    for bbox_num in range(num_bboxes):
-                        # get IOU of the current GT box and the current anchor box
-                        curr_iou = iou([gta[bbox_num, 0], gta[bbox_num, 2], gta[bbox_num, 1], gta[bbox_num, 3]], [x1_anc, y1_anc, x2_anc, y2_anc])
-                        # calculate the regression targets if they will be needed
-                        if curr_iou > best_iou_for_bbox[bbox_num] or curr_iou > 0.7:
-                            cx = (gta[bbox_num, 0] + gta[bbox_num, 1]) / 2.0
-                            cy = (gta[bbox_num, 2] + gta[bbox_num, 3]) / 2.0
-                            cxa = (x1_anc + x2_anc)/2.0
-                            cya = (y1_anc + y2_anc)/2.0
-                            tx = (cx - cxa) / (x2_anc - x1_anc)
-                            ty = (cy - cya) / (y2_anc - y1_anc)
-                            tw = np.log((gta[bbox_num, 1] - gta[bbox_num, 0]) / (x2_anc - x1_anc))
-                            th = np.log((gta[bbox_num, 3] - gta[bbox_num, 2]) / (y2_anc - y1_anc))
-                        #if bbox['label'][bbox_num] != 'bg':
-                            # all GT boxes should be mapped to an anchor box, so we keep track of which anchor box was best
-                        if curr_iou > best_iou_for_bbox[bbox_num]:
-                            best_anchor_for_bbox[bbox_num] = [jy, ix, anchor_ratio_idx, anchor_size_idx]
-                            best_iou_for_bbox[bbox_num] = curr_iou
-                            best_x_for_bbox[bbox_num,:] = [x1_anc, x2_anc, y1_anc, y2_anc]
-                            best_dx_for_bbox[bbox_num,:] = [tx, ty, tw, th]
-                        # we set the anchor to positive if the IOU is >0.7 (it does not matter if there was another better box, it just indicates overlap)
-                        if curr_iou > 0.7:
-                            bbox_type = 'pos'
-                            num_anchors_for_bbox[bbox_num] += 1
-                            # we update the regression layer target if this IOU is the best for the current (x,y) and anchor position
-                            if curr_iou > best_iou_for_loc:
-                                best_iou_for_loc = curr_iou
-                                best_regr = (tx, ty, tw, th)
-                        # if the IOU is >0.3 and <0.7, it is ambiguous and no included in the objective
-                        if 0.3 < curr_iou < 0.7:
-                            # gray zone between neg and pos
-                            if bbox_type != 'pos':
-                                bbox_type = 'neutral'
-                    # turn on or off outputs depending on IOUs
-                    if bbox_type == 'neg':
-                        y_is_box_valid[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 1
-                        y_rpn_overlap[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 0
-                    elif bbox_type == 'neutral':
-                        y_is_box_valid[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 0
-                        y_rpn_overlap[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 0
-                    elif bbox_type == 'pos':
-                        y_is_box_valid[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 1
-                        y_rpn_overlap[jy, ix, anchor_ratio_idx + n_anchratios * anchor_size_idx] = 1
-                        start = 4 * (anchor_ratio_idx + n_anchratios * anchor_size_idx)
-                        y_rpn_regr[jy, ix, start:start+4] = best_regr
-    # we ensure that every bbox has at least one positive RPN region
-    for idx in range(num_anchors_for_bbox.shape[0]):
-        if num_anchors_for_bbox[idx] == 0:
-            # no box with an IOU greater than zero ...
-            if best_anchor_for_bbox[idx, 0] == -1:
-                continue
-            y_is_box_valid[
-                best_anchor_for_bbox[idx,0], best_anchor_for_bbox[idx,1], best_anchor_for_bbox[idx,2] + n_anchratios *
-                best_anchor_for_bbox[idx,3]] = 1
-            y_rpn_overlap[
-                best_anchor_for_bbox[idx,0], best_anchor_for_bbox[idx,1], best_anchor_for_bbox[idx,2] + n_anchratios *
-                best_anchor_for_bbox[idx,3]] = 1
-            start = 4 * (best_anchor_for_bbox[idx,2] + n_anchratios * best_anchor_for_bbox[idx,3])
-            y_rpn_regr[best_anchor_for_bbox[idx,0], best_anchor_for_bbox[idx,1], start:start+4] = best_dx_for_bbox[idx, :]
-	#y_rpn_overlap = np.transpose(y_rpn_overlap, (2, 0, 1))
-    y_rpn_overlap = y_rpn_overlap.reshape((output_height, output_width, 9))
-    y_rpn_overlap = np.expand_dims(y_rpn_overlap, axis=0)
-    #y_is_box_valid = np.transpose(y_is_box_valid, (2, 0, 1))
-    y_is_box_valid = y_is_box_valid.reshape((output_height, output_width, 9))
-    y_is_box_valid = np.expand_dims(y_is_box_valid, axis=0)
-    #y_rpn_regr = np.transpose(y_rpn_regr, (2, 0, 1))
-    y_rpn_regr = y_rpn_regr.reshape((output_height, output_width, 36))
-    y_rpn_regr = np.expand_dims(y_rpn_regr, axis=0)
-    pos_locs = np.where(np.logical_and(y_rpn_overlap[0, :, :, :] == 1, y_is_box_valid[0, :, :, :] == 1))
-    neg_locs = np.where(np.logical_and(y_rpn_overlap[0, :, :, :] == 0, y_is_box_valid[0, :, :, :] == 1))
-    num_pos = len(pos_locs[0])
-    # one issue is that the RPN has many more negative than positive regions, so we turn off some of the negative
-    # regions. We also limit it to 256 regions.
-    num_regions = 256
-    if len(pos_locs[0]) > num_regions/2:
-        val_locs = random.sample(range(len(pos_locs[0])), len(pos_locs[0]) - num_regions/2)
-        y_is_box_valid[0, pos_locs[0][val_locs], pos_locs[1][val_locs], pos_locs[2][val_locs]] = 0
-        num_pos = num_regions/2
-    if len(neg_locs[0]) + num_pos > num_regions:
-        val_locs = random.sample(range(len(neg_locs[0])), len(neg_locs[0]) - num_pos)
-        y_is_box_valid[0, neg_locs[0][val_locs], neg_locs[1][val_locs], neg_locs[2][val_locs]] = 0
-    y_rpn_cls = np.concatenate([y_is_box_valid, y_rpn_overlap], axis=3)
-    y_rpn_regr = np.concatenate([np.repeat(y_rpn_overlap, 4, axis=3), y_rpn_regr], axis=3)
-    return np.copy(y_rpn_cls), np.copy(y_rpn_regr)
-
 def shift(shape, stride):
     shift_x = np.arange(0, shape[0]) * stride
     shift_y = np.arange(0, shape[1]) * stride
@@ -281,99 +159,17 @@ def shift(shape, stride):
 def cal_accuracy(gta, bbox, scores):
     bbox = bbox[0]
 
-    (output_width, output_height) = (60, 40)
-    num_anchors = 9
-    #print('bbox',bbox)
-    #print('gta',gta)
-    #print('shape of bbox',bbox.shape)
-    #anchor box generate(generate anchors in each shifts box)
-    y_rpn_overlap = np.zeros((output_height, output_width, num_anchors))
-    y_is_box_valid = np.zeros((output_height, output_width, num_anchors))
-    y_rpn_regr = np.zeros((output_height * output_width * num_anchors , 4))
-
-    anchor_box = batch_generate._generate_all_bbox(output_width, output_height)
-    total_anchors = anchor_box.shape[0]
-    #print('the shape of anchor_box', np.asarray(anchor_box).shape)
-    #print('the total number os anchors',total_anchors)
-
-    #Only inside anchors are valid
-    _allowed_border = 0
-    im_info = (640, 960)
-    inds_inside = np.where(
-    (anchor_box[:, 0] >= -_allowed_border) &
-    (anchor_box[:, 1] >= -_allowed_border) &
-    (anchor_box[:, 2] < im_info[1] + _allowed_border) &  # width
-    (anchor_box[:, 3] < im_info[0] + _allowed_border)    # height
-    )[0]
     overlaps = bbox_overlaps(np.ascontiguousarray(bbox, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
+    pos = np.where(argmax_overlaps > 0.6)[0]
+    print('after nms we have postive samples', len(pos))
     #max_overlaps = np.zeros((output_height * output_width * num_anchors))
-    max_overlaps = overlaps[np.arange(300), argmax_overlaps]
+    max_overlaps = overlaps[np.arange(len(bbox)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)
     #print('max_overlaps',max_overlaps)
     #print('gt_argmax_overlaps',gt_argmax_overlaps)
     gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
     gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
-
-    #print('overlaps display',overlaps)
-    #print('shape of overlaps', np.asarray(overlaps).shape)
-    #print('argmax_overlaps', argmax_overlaps)
-    #print('shape of argmax_overlaps',argmax_overlaps.shape)
-    #print('max overlaps display', max_overlaps)
-    #print('total number of max overlaps', len(max_overlaps))
-    #print('shape of max overlaps', max_overlaps.shape)
-    #print('1 gt_max_overlaps display', gt_max_overlaps)
-    #print('1 total number of gt_max_overlaps', len(gt_max_overlaps))
-    #print('1 gt_argmax_overlaps', gt_argmax_overlaps)
-    #print('1 number of gt_argmax_overlaps', len(gt_argmax_overlaps))
-    y_rpn_overlap = y_rpn_overlap.reshape(output_height * output_width * num_anchors)
-    y_is_box_valid = y_is_box_valid.reshape(output_height * output_width * num_anchors)
-
-    #y_rpn_overlap[gt_argmax_overlaps] = 1
-    #y_is_box_valid[gt_argmax_overlaps] = 1
-    y_rpn_overlap[max_overlaps >= 0.7] = 1
-    y_is_box_valid[max_overlaps >= 0.7] = 1
-
-    valid_anchors = anchor_box[inds_inside, :]
-    overlaps = bbox_overlaps(np.ascontiguousarray(valid_anchors, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
-    argmax_overlaps = overlaps.argmax(axis=1)
-    #max_overlaps = np.zeros((output_height * output_width * num_anchors))
-    max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
-    gt_argmax_overlaps = overlaps.argmax(axis=0)
-    gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
-    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
-    #print('overlaps display',overlaps)
-    #print('shape of overlaps', np.asarray(overlaps).shape)
-    #print('argmax_overlaps', argmax_overlaps)
-    #print('shape of argmax_overlaps',argmax_overlaps.shape)
-    #print('max overlaps display', max_overlaps)
-    #print('total number of max overlaps', len(max_overlaps))
-    #print('shape of max overlaps', max_overlaps.shape)
-    #print('2 gt_max_overlaps display', gt_max_overlaps)
-    #print('2 total number of gt_max_overlaps', len(gt_max_overlaps))
-    #print('2 gt_argmax_overlaps', gt_argmax_overlaps)
-    #print('2 number of gt_argmax_overlaps', len(gt_argmax_overlaps))
-
-    #postive = 0
-    #print(overlaps.shape)
-    #for i in range(300):
-    #    index = np.where(overlaps[i,:] > 0.1)[0]
-    #    postive += len(index)
-        #print(index)
-        #if(overlaps[i,:] > 0.7):
-        #    postive +=1
-    #print('fg sample number',postive)
-    pos = np.where(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 1))[0]
-    print('fg sample number', len(pos))
-    print('groundtruth number', len(gta))
-    print('calculate overlaps shape',overlaps.shape)
-    #argmax_overlaps = overlaps.argmax(axis=1)
-    #max_overlaps = overlaps[np.arange(300), argmax_overlaps]
-    #print('max overlaps',max_overlaps)
-    #gt_argmax_overlaps = overlaps.argmax(axis=0)
-    #gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
-    #gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
-    #print(gt_argmax_overlaps)
 
 def non_max_suppression_fast(boxes, probs, overlap_thresh=0.7, max_boxes=300):
     if len(boxes) == 0:
@@ -435,34 +231,49 @@ def non_max_suppression_fast(boxes, probs, overlap_thresh=0.7, max_boxes=300):
     return boxes, probs
 
 def propose_cpu(boxes, scores, maximum):
-    shape = (40, 60)
-    shifted = shift(shape, 16)
+
+    (output_width, output_height) = (60, 40)
+    num_anchors = 9
+    _allowed_border = 0
+    im_info = (640,960)
+    anchor_box = batch_generate._generate_all_bbox(output_width, output_height)
+    total_anchors = anchor_box.shape[0]
+    inds_inside = np.where(
+    (anchor_box[:, 0] >= -_allowed_border) &
+    (anchor_box[:, 1] >= -_allowed_border) &
+    (anchor_box[:, 2] < im_info[1] + _allowed_border) &  # width
+    (anchor_box[:, 3] < im_info[0] + _allowed_border)    # height
+    )[0]
+    #shape = (40, 60)
+    #shifted = shift(shape, 16)
     proposals = np.reshape(boxes, (-1, 4))
     #print('before decode',proposals.shape)
     #print(proposals)
-    proposals = bbox_decode.bbox_transform_inv_cpu(shifted, proposals)
+    proposals[inds_inside] = bbox_decode.bbox_transform_inv_cpu(anchor_box[inds_inside], proposals[inds_inside])
     proposals = np.reshape(proposals, (-1, 4))
+    #print(proposals)
     #print('proposals', proposals)
     #print('after decode',proposals.shape)
-    proposals = clip_cpu(proposals, shape)
-    indicies = filter_boxes_cpu(proposals, 1)
-    proposals = proposals[indicies]
+    #proposals = clip_cpu(proposals, shape)
+    #indicies = filter_boxes_cpu(proposals, 1)
+    #proposals = proposals[indicies]
     #print(proposals.shape)
     #print('input score shape',scores.shape)
     scores = scores[:,:,:,:9]
 
     scores = np.reshape(scores, (-1, 1))
     #print('reshape score',scores.shape)
-    scores = scores[indicies]
+    #scores = scores[indicies]
     #print('valid score shape',scores.shape)
     #print('score', scores)
     #print('shape', scores.shape)
     #print(scores[0])
-    idx = np.where(scores[:] > 0.5)[0]
-    print('> 0.7', len(idx))
+    #idx = np.where(scores[:] > 0.5)[0]
+    #print('> 0.7', len(idx))
     #print('> 0.  scores',len(np.where(scores>0.7)[0]))
     #print('diplay', np.where(scores[:,0]>0.2)[0])
-    boxes, scores = non_max_suppression_fast(proposals, scores[:])
+    boxes, scores = non_max_suppression_fast(proposals[inds_inside], scores[inds_inside,:])
+    print('> 0.7  scores',len(np.where(scores>0.7)[0]))
     #print('after nms box shape',boxes.shape)
     #print('after nms score display',scores)
     boxes = np.expand_dims(boxes, axis = 0)
