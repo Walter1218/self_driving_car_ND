@@ -35,7 +35,7 @@ model_rpn.load_weights('vgg16_weights_tf_dim_ordering_tf_kernels.h5', by_name=Tr
 optimizer = Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_classification(num_anchors), losses.rpn_regression(num_anchors)])
 epoch_length = 1000
-num_epochs = 4
+num_epochs = 6
 iter_num = 0
 epoch_num = 0
 while True:

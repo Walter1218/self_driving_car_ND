@@ -171,9 +171,10 @@ def cal_accuracy(gta, bbox, scores):
     gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
     gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
-def non_max_suppression_fast(boxes, probs, overlap_thresh=0.7, max_boxes=300):
+def non_max_suppression_fast(boxes, probs, max_boxes, overlap_thresh=0.7):
     if len(boxes) == 0:
         return []
+    max_boxes = max_boxes
     # grab the coordinates of the bounding boxes
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
@@ -230,7 +231,7 @@ def non_max_suppression_fast(boxes, probs, overlap_thresh=0.7, max_boxes=300):
     #print('probs',probs)
     return boxes, probs
 
-def propose_cpu(boxes, scores, maximum):
+def propose_cpu(boxes, scores, maximum=300):
 
     (output_width, output_height) = (60, 40)
     num_anchors = 9
@@ -272,7 +273,7 @@ def propose_cpu(boxes, scores, maximum):
     #print('> 0.7', len(idx))
     #print('> 0.  scores',len(np.where(scores>0.7)[0]))
     #print('diplay', np.where(scores[:,0]>0.2)[0])
-    boxes, scores = non_max_suppression_fast(proposals[inds_inside], scores[inds_inside,:])
+    boxes, scores = non_max_suppression_fast(proposals[inds_inside], scores[inds_inside,:],maximum)
     print('> 0.7  scores',len(np.where(scores>0.7)[0]))
     #print('after nms box shape',boxes.shape)
     #print('after nms score display',scores)

@@ -39,8 +39,8 @@ model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_classification(num_ancho
 #model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.classification, losses.regression(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 #model_all.compile(optimizer='sgd', loss='mae')
 
-epoch_length = 10000
-num_epochs = 20
+epoch_length = 2000
+num_epochs = 10
 iter_num = 0
 epoch_num = 0
 
@@ -57,10 +57,10 @@ while True:
     P_rpn = model_rpn.predict_on_batch(X)
     #The input structure is [boxes, scores, maximum]
     #roi = utils.propose(P_rpn[1], P_rpn[0], 300)
-    rois, scores = utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
+    #rois, scores = utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
     #utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
     #print(rois.shape)
-    utils.cal_accuracy(gta, rois, scores)
+    #utils.cal_accuracy(gta, rois, scores)
     #print(np.asarray(roi))
     #print(roi[0])
     #print(P_rpn[0], P_rpn[1])
