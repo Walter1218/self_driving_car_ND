@@ -81,7 +81,7 @@ def _whctrs(anchor):
     y_ctr = anchor[1] + 0.5 * (h - 1)
     return w, h, x_ctr, y_ctr
 
-def clip_cpu(boxes, shape):
+def clip_cpu(boxes):
     #boxes[:, 0::4] = np.maximum(np.minimum(boxes[:, 0::4], int(shape[1] - 1)), 0)
     # y1 >= 0
     #boxes[:, 1::4] = np.maximum(np.minimum(boxes[:, 1::4], int(shape[0] - 1)), 0)
@@ -89,10 +89,14 @@ def clip_cpu(boxes, shape):
     #boxes[:, 2::4] = np.maximum(np.minimum(boxes[:, 2::4], int(shape[1] - 1)), 0)
     # y2 < im_shape[0]
     #oxes[:, 3::4] = np.maximum(np.minimum(boxes[:, 3::4], int(shape[0] - 1)), 0)
-    boxes[:,0]
-    boxes[:,1]
-    boxes[:,2]
-    boxes[:,3]
+    x1 = np.where(boxes[:,0] < 0)[0]
+    y1 = np.where(boxes[:,1] < 0)[0]
+    x2 = np.where(boxes[:,2] > 960)[0]
+    y2 = np.where(boxes[:,3] > 640)[0]
+    boxes[x1,0] = 0
+    boxes[y1,1] = 0
+    boxes[x2,2] = 960
+    boxes[y2,3] = 640
     return boxes
 
 
@@ -159,19 +163,23 @@ def shift(shape, stride):
 def cal_accuracy(gta, bbox, scores):
     bbox = bbox[0]
 
-    overlaps = bbox_overlaps(np.ascontiguousarray(bbox, dtype=np.float),np.ascontiguousarray(gta, dtype=np.float))
+    overlaps = bbox_overlaps(np.ascontiguousarray(gta, dtype=np.float),np.ascontiguousarray(bbox, dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
-    pos = np.where(argmax_overlaps > 0.6)[0]
-    print('after nms we have postive samples', len(pos))
+    #print(overlaps)
+    #pos = np.where(argmax_overlaps > 0.6)[0]
+    #print('after nms we have postive samples', len(pos))
     #max_overlaps = np.zeros((output_height * output_width * num_anchors))
-    max_overlaps = overlaps[np.arange(len(bbox)), argmax_overlaps]
+    max_overlaps = overlaps[np.arange(len(gta)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)
     #print('max_overlaps',max_overlaps)
     #print('gt_argmax_overlaps',gt_argmax_overlaps)
     gt_max_overlaps = overlaps[gt_argmax_overlaps,np.arange(overlaps.shape[1])]
+    #print(gt_max_overlaps)
     gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
-
-def non_max_suppression_fast(boxes, probs, max_boxes, overlap_thresh=0.7):
+    pos = np.where(gt_max_overlaps > 0.45)[0]
+    print('groundtruth', gta.shape)
+    print('after nms we have postive samples', len(pos))
+def non_max_suppression_fast(boxes, probs, max_boxes, overlap_thresh=0.9):
     if len(boxes) == 0:
         return []
     max_boxes = max_boxes
@@ -192,6 +200,7 @@ def non_max_suppression_fast(boxes, probs, max_boxes, overlap_thresh=0.7):
     probs = probs.reshape(-1)
     #print(probs.shape)
     idx = np.argsort(probs[:])
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
     #print('sorted index',idx)
     while(len(idx)> 0):
         last = len(idx) - 1
@@ -210,16 +219,10 @@ def non_max_suppression_fast(boxes, probs, max_boxes, overlap_thresh=0.7):
         yy2_un = np.maximum(y2[i], y2[idx[:last]])
 
         # compute the width and height of the bounding box
-        ww_int = xx2_int - xx1_int
-        hh_int = yy2_int - yy1_int
-        ww_un = xx2_un - xx1_un
-        hh_un = yy2_un - yy1_un
-
-        ww_un = np.maximum(0, ww_un)
-        hh_un = np.maximum(0, hh_un)
-
-        # compute the ratio of overlap
-        overlap = (ww_int*hh_int)/(ww_un*hh_un + 1e-9)
+        w = np.maximum(0.0, xx2_int - xx1_int + 1)
+        h = np.maximum(0.0, yy2_int - yy1_int + 1)
+        inter = w * h
+        overlap = inter / (areas[i] + areas[idx[:last]] - inter)
 
         # delete all indexes from the index list that have
         idx = np.delete(idx, np.concatenate(([last],np.where(overlap > overlap_thresh)[0])))
@@ -255,7 +258,7 @@ def propose_cpu(boxes, scores, maximum=300):
     #print(proposals)
     #print('proposals', proposals)
     #print('after decode',proposals.shape)
-    #proposals = clip_cpu(proposals, shape)
+    proposals = clip_cpu(proposals)
     #indicies = filter_boxes_cpu(proposals, 1)
     #proposals = proposals[indicies]
     #print(proposals.shape)
@@ -274,7 +277,7 @@ def propose_cpu(boxes, scores, maximum=300):
     #print('> 0.  scores',len(np.where(scores>0.7)[0]))
     #print('diplay', np.where(scores[:,0]>0.2)[0])
     boxes, scores = non_max_suppression_fast(proposals[inds_inside], scores[inds_inside,:],maximum)
-    print('> 0.7  scores',len(np.where(scores>0.7)[0]))
+    #print('> 0.7  scores',len(np.where(scores>0.7)[0]))
     #print('after nms box shape',boxes.shape)
     #print('after nms score display',scores)
     boxes = np.expand_dims(boxes, axis = 0)

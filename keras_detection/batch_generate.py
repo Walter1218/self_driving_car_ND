@@ -199,8 +199,8 @@ def label_generate(img, gta):
     #print ("was %s inds, disabling %s, now %s %sinds" % (len(bg_inds), len(disable_inds), np.sum(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 0))))
     #print('negative samples',np.where(np.logical_and(y_rpn_overlap == 0, y_is_box_valid == 1))[0])
     #print('postive samples',np.where(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 1))[0])
-    print('number of postive samples',len(np.where(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 1))[0]))
-    print('number of negative samples',len(np.where(np.logical_and(y_rpn_overlap == 0, y_is_box_valid == 1))[0]))
+    #print('number of postive samples',len(np.where(np.logical_and(y_rpn_overlap == 1, y_is_box_valid == 1))[0]))
+    #print('number of negative samples',len(np.where(np.logical_and(y_rpn_overlap == 0, y_is_box_valid == 1))[0]))
 
     #bbox transfer for all valid postive samples
     y_rpn_regr[fg_inds] = utils._compute_targets(y_rpn_regr[fg_inds], gta[argmax_overlaps[fg_inds], :])

@@ -37,11 +37,13 @@ def base_net(input_tensor=None, trainable=False):
 
 def rpn(base_layers,num_anchors):
 
-    x = convolutional.Conv2D(512, 3, 3, border_mode='same', activation='sigmoid',name='rpn_conv1')(base_layers)
+    x = convolutional.Conv2D(512, 3, 3, border_mode='same', activation='relu',name='rpn_conv1')(base_layers)
+    x = convolutional.Conv2D(1024, 3, 3, border_mode='same', activation='relu',name='rpn_conv2')(x)
+    x = convolutional.Conv2D(512, 3, 3, border_mode='same', activation='relu',name='rpn_conv3')(x)
 
     x_class = convolutional.Conv2D(num_anchors, 1, 1, activation='sigmoid', border_mode='same', name='rpn_out_class')(x)
 
-    x_regr = convolutional.Conv2D(num_anchors * 4, 1, 1, activation='linear', name='rpn_out_regress')(x)
+    x_regr = convolutional.Conv2D(num_anchors * 4, 1, 1, activation=None, name='rpn_out_regress')(x)
 
     return [x_class, x_regr, base_layers]
 

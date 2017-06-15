@@ -46,6 +46,8 @@ while True:
         iter_num += 1
         print('iter {0}, epoch {1}, loss {2}'.format(iter_num, epoch_num, loss_rpn))
         if iter_num == epoch_length:
+            name = str(iter_num) + str(epoch) + 'rpn.h5'
+            model_rpn.save_weights(name)
             iter_num = 0
             epoch_num += 1
         if epoch_num == num_epochs:

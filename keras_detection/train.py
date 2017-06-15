@@ -39,8 +39,8 @@ model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_classification(num_ancho
 #model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.classification, losses.regression(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 #model_all.compile(optimizer='sgd', loss='mae')
 
-epoch_length = 2000
-num_epochs = 10
+epoch_length = 1000
+num_epochs = 5
 iter_num = 0
 epoch_num = 0
 
@@ -52,21 +52,25 @@ best_loss = np.Inf
 while True:
     #try:
     X, Y, gta = next(gen)
+    #for i in range(100):
     loss_rpn = model_rpn.train_on_batch(X, Y)
     #it will return cls, regression bbox, and base feature map
     P_rpn = model_rpn.predict_on_batch(X)
     #The input structure is [boxes, scores, maximum]
     #roi = utils.propose(P_rpn[1], P_rpn[0], 300)
-    #rois, scores = utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
+    rois, scores = utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
     #utils.propose_cpu(P_rpn[1], P_rpn[0], 300)
     #print(rois.shape)
-    #utils.cal_accuracy(gta, rois, scores)
+    utils.cal_accuracy(gta, rois, scores)
     #print(np.asarray(roi))
     #print(roi[0])
     #print(P_rpn[0], P_rpn[1])
-    iter_num += 1
+
     print('iter {0}, epoch {1}, loss {2}'.format(iter_num, epoch_num, loss_rpn))
+    iter_num += 1
     if iter_num == epoch_length:
+        name = str(iter_num) + str(epoch_num) + 'rpn.h5'
+        model_rpn.save_weights(name)
         iter_num = 0
         epoch_num += 1
     if epoch_num == num_epochs:
