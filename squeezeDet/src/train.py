@@ -100,8 +100,8 @@ def _viz_prediction_result(model, images, bboxes, labels, batch_det_bbox,
 
 def train():
   """Train SqueezeDet model"""
-  assert FLAGS.dataset == 'KITTI', \
-      'Currently only support KITTI dataset'
+  #assert FLAGS.dataset == 'KITTI', \
+#      'Currently only support KITTI dataset'
 
   with tf.Graph().as_default():
 
@@ -125,8 +125,8 @@ def train():
       mc.PRETRAINED_MODEL_PATH = FLAGS.pretrained_model_path
       model = SqueezeDetPlus(mc, FLAGS.gpu)
 
-    imdb = kitti(FLAGS.image_set, FLAGS.data_path, mc)
-
+    #imdb = kitti(FLAGS.image_set, FLAGS.data_path, mc)
+    imdb = pascal_voc(FLAGS.image_set, '2007',FLAGS.data_path, mc)
     # save model size, flops, activations by layers
     with open(os.path.join(FLAGS.train_dir, 'model_metrics.txt'), 'w') as f:
       f.write('Number of parameter by layer:\n')

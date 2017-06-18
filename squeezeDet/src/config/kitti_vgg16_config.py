@@ -8,7 +8,7 @@ from config.config import base_model_config
 
 def kitti_vgg16_config():
   """Specify the parameters to tune below."""
-  mc                       = base_model_config('KITTI')
+  mc                       = base_model_config('PASCAL_VOC')#base_model_config('KITTI')
 
   mc.IMAGE_WIDTH           = 1242
   mc.IMAGE_HEIGHT          = 375

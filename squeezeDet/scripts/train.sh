@@ -34,7 +34,7 @@ done
 if [[ "$1" == "squeezeDet" ]]
 then
   python ./src/train.py \
-  --dataset=KITTI \
+  --dataset=PASCAL_VOC \
   --pretrained_model_path=./data/SqueezeNet/squeezenet_v1.1.pkl \
   --data_path=./data/KITTI \
   --image_set=train \
@@ -45,15 +45,15 @@ then
   --gpu=$USE_GPU
 fi
 
-# =========================================================================== #
+# =========================================================================== # KITTI
 # command for squeezeDet+:
-# =========================================================================== #
+# =========================================================================== #./data/KITTI \
 if [[ "$1" == "squeezeDet+" ]]
 then
   python ./src/train.py \
-  --dataset=KITTI \
+  --dataset=PASCAL_VOC \
   --pretrained_model_path=./data/SqueezeNet/squeezenet_v1.0_SR_0.750.pkl \
-  --data_path=./data/KITTI \
+  --data_path=./VOCdevkit2007/VOC2007 \
   --image_set=train \
   --train_dir=/tmp/bichen/logs/SqueezeDetPlus/train \
   --net=squeezeDet+ \
